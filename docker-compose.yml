@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: zaymo-postgres
+    environment:
+      POSTGRES_USER: zaymo
+      POSTGRES_PASSWORD: zaymo
+      POSTGRES_DB: zaymo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
