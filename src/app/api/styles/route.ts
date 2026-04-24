@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, description, images } = await req.json();
+  const { name, description, images, brandContext, brandColors } = await req.json();
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -64,6 +64,16 @@ export async function POST(req: NextRequest) {
 
   // Build GPT-4o vision request to analyze style
   const textParts: string[] = [];
+  if (brandContext || brandColors?.length) {
+    const brandParts: string[] = [];
+    if (brandContext?.name) brandParts.push(`Brand: ${brandContext.name}`);
+    if (brandContext?.tagline) brandParts.push(`Tagline: "${brandContext.tagline}"`);
+    if (brandContext?.description) brandParts.push(`About: ${brandContext.description}`);
+    if (brandContext?.tone) brandParts.push(`Tone/voice: ${brandContext.tone}`);
+    if (brandContext?.productTypes?.length) brandParts.push(`Products: ${(brandContext.productTypes as string[]).join(", ")}`);
+    if (brandColors?.length) brandParts.push(`Brand colors: ${(brandColors as string[]).join(", ")}`);
+    if (brandParts.length) textParts.push(`Brand context imported from website:\n${brandParts.join("\n")}`);
+  }
   if (description?.trim()) {
     textParts.push(
       `User's description of their desired style: "${description.trim()}"`,

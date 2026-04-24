@@ -4,9 +4,8 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { ArrowUp, Loader2, Zap, Pencil, ImagePlus, X, Globe, MessageSquare, Palette, Plus, Check, ChevronDown } from "lucide-react"
+import { ArrowUp, Loader2, Zap, Pencil, ImagePlus, X, MessageSquare, Palette, Plus, Check, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import type { BrandContext } from "@/lib/openai"
 import { StyleModal, type StyleSummary } from "./StyleModal"
 
 type ImageAttachment = {
@@ -62,14 +61,6 @@ export function ChatSidebar({ onHtmlChange, hasHtml, isGenerating, setIsGenerati
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageLibraryRef = useRef<HTMLDivElement>(null)
-
-  const [brandUrl, setBrandUrl] = useState("")
-  const [isScraping, setIsScraping] = useState(false)
-  const [brand, setBrand] = useState<BrandContext | null>(null)
-  const [brandColors, setBrandColors] = useState<string[]>([])
-  const [brandImages, setBrandImages] = useState<string[]>([])
-  const [addingBrandImage, setAddingBrandImage] = useState<string | null>(null)
-  const [scrapeError, setScrapeError] = useState("")
 
   const [showStyleModal, setShowStyleModal] = useState(false)
   const [showStylePicker, setShowStylePicker] = useState(false)
@@ -234,58 +225,6 @@ export function ChatSidebar({ onHtmlChange, hasHtml, isGenerating, setIsGenerati
     )
   }
 
-  async function handleScrape() {
-    const url = brandUrl.trim()
-    if (!url || isScraping) return
-    setIsScraping(true)
-    setScrapeError("")
-    try {
-      const res = await fetch("/api/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      })
-      if (!res.ok) throw new Error(await res.text())
-      const data = await res.json()
-      setBrand(data.brand)
-      setBrandColors(data.colors ?? [])
-      setBrandImages(data.brandImages ?? [])
-      setBrandUrl("")
-    } catch (err) {
-      setScrapeError(err instanceof Error ? err.message : "Failed to import brand")
-    } finally {
-      setIsScraping(false)
-    }
-  }
-
-  async function addBrandImage(url: string) {
-    if (addingBrandImage === url) return
-    setAddingBrandImage(url)
-    try {
-      const res = await fetch(`/api/proxy-image?url=${encodeURIComponent(url)}`)
-      if (!res.ok) throw new Error("Failed to load image")
-      const contentType = res.headers.get("content-type") ?? "image/jpeg"
-      const blob = await res.blob()
-      const { blob: compressed, base64, mimeType } = await compressImage(
-        new File([blob], "brand-image", { type: contentType })
-      )
-      const previewUrl = URL.createObjectURL(compressed)
-      const name = url.split("/").pop()?.split("?")[0] ?? "brand-image"
-      setImages((prev) => [...prev, { url: "", base64, mimeType, previewUrl, name, blob: compressed }])
-    } catch {
-      // silently fail — user can always upload manually
-    } finally {
-      setAddingBrandImage(null)
-    }
-  }
-
-  function handleBrandUrlKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      handleScrape()
-    }
-  }
-
   async function handleSubmit() {
     if ((!input.trim() && images.length === 0) || isGenerating) return
 
@@ -328,8 +267,6 @@ export function ChatSidebar({ onHtmlChange, hasHtml, isGenerating, setIsGenerati
           currentHtml: currentHtml || null,
           mode,
           images: uploadedImages.map(({ url, base64, mimeType }) => ({ url, base64, mimeType })),
-          brand: brand ?? undefined,
-          brandColors: brandColors.length ? brandColors : undefined,
           styleContext: activeStyle ? { name: activeStyle.name, stylePrompt: activeStyle.stylePrompt } : undefined,
         }),
       })
@@ -416,112 +353,6 @@ export function ChatSidebar({ onHtmlChange, hasHtml, isGenerating, setIsGenerati
             <span className="text-xs text-muted-foreground">AI</span>
           </div>
         </div>
-      </div>
-
-      {/* Brand import */}
-      <div className="px-4 py-3 border-b space-y-2">
-        {brand ? (
-          <div className="bg-muted rounded-lg p-3 space-y-1.5">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold truncate">{brand.name || "Imported brand"}</p>
-                {brand.tagline && (
-                  <p className="text-xs text-muted-foreground italic truncate">"{brand.tagline}"</p>
-                )}
-                {brand.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{brand.description}</p>
-                )}
-                {(brand.contact?.email || brand.contact?.phone || brand.contact?.address) && (
-                  <div className="mt-1 space-y-0.5">
-                    {brand.contact.email && (
-                      <p className="text-xs text-muted-foreground truncate">{brand.contact.email}</p>
-                    )}
-                    {brand.contact.phone && (
-                      <p className="text-xs text-muted-foreground">{brand.contact.phone}</p>
-                    )}
-                    {brand.contact.address && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">{brand.contact.address}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => { setBrand(null); setBrandColors([]); setBrandImages([]) }}
-                className="shrink-0 h-4 w-4 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                title="Remove brand"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            {brandColors.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {brandColors.map((color) => (
-                  <div
-                    key={color}
-                    className="h-4 w-4 rounded-full border border-black/10 shrink-0"
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
-              </div>
-            )}
-            {brandImages.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Brand images — click to attach</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {brandImages.map((url) => (
-                    <button
-                      key={url}
-                      onClick={() => addBrandImage(url)}
-                      disabled={addingBrandImage === url}
-                      className="relative h-12 w-12 rounded border overflow-hidden bg-muted hover:border-primary transition-colors group"
-                      title="Add to attachments"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/proxy-image?url=${encodeURIComponent(url)}`} alt="" className="w-full h-full object-contain" />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        {addingBrandImage === url ? (
-                          <Loader2 className="h-3 w-3 text-white animate-spin" />
-                        ) : (
-                          <span className="text-white text-xs font-medium">+</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Globe className="h-3 w-3" />
-              Import brand from URL
-            </p>
-            <div className="flex gap-1.5">
-              <Input
-                value={brandUrl}
-                onChange={(e) => { setBrandUrl(e.target.value); setScrapeError("") }}
-                onKeyDown={handleBrandUrlKeyDown}
-                placeholder="https://example.com"
-                className="h-7 text-xs"
-                disabled={isScraping}
-              />
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 px-2 text-xs shrink-0"
-                onClick={handleScrape}
-                disabled={!brandUrl.trim() || isScraping}
-              >
-                {isScraping ? <Loader2 className="h-3 w-3 animate-spin" /> : "Import"}
-              </Button>
-            </div>
-            {scrapeError && (
-              <p className="text-xs text-destructive">{scrapeError}</p>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Style selector */}
