@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowUp, Loader2, Zap, Pencil, ImagePlus, X, MessageSquare, Palette, Plus, Check, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { StyleModal, type StyleSummary } from "./StyleModal"
+import { sanitizeEmailHtml } from "@/lib/sanitizeEmailHtml"
 
 type ImageAttachment = {
   url: string
@@ -286,11 +287,13 @@ export function ChatSidebar({ onHtmlChange, hasHtml, isGenerating, setIsGenerati
         )
       }
 
-      const html = accumulated
-        .replace(/^```html\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim()
+      const html = sanitizeEmailHtml(
+        accumulated
+          .replace(/^```html\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim()
+      )
       onHtmlChange(html)
 
       if (onMetaGenerated) {

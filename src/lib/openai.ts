@@ -11,8 +11,17 @@ Rules (strictly enforced):
 - ALL CSS must be inline style attributes. Exception: @media queries belong in a <style> block in <head>.
 - No JavaScript whatsoever.
 - Max content width: 600px — this is a hard limit. Wrap content in a full-width outer table (width="100%") centering an inner table with width="600" and style="max-width:600px;width:600px;".
-- Multi-column layouts — CRITICAL: a <td>'s rendered width = (width attribute) + padding-left + padding-right. ALL sibling <td> rendered widths in a <tr> must sum to ≤ 600px (or the parent table's width). BEFORE writing a multi-column row, compute: total_padding = sum of (padding-left + padding-right) across all cells; then distribute (600 − total_padding) as the content widths. Example: 2-col, each cell has padding-left:40 + padding-right:20 = 60px per cell, total padding = 120px, so each cell width attribute = (600−120)/2 = 240. NEVER set width attributes and padding independently without verifying the sum. NEVER use percentage widths on cells that also have horizontal padding.
-- Verify before outputting: for every multi-column <tr>, write out the arithmetic: sum of (width + padding-left + padding-right) for each cell = must be ≤ 600.
+- Multi-column layouts — CRITICAL LAYOUT RULE: In email clients, a <td>'s TOTAL rendered width = (width attribute) + padding-left + padding-right. The width attribute is the CONTENT width ONLY — padding is always added on top. ALL cells in a <tr> must have their total rendered widths sum to exactly the parent table's width (600px for top-level rows).
+  - MANDATORY FORMULA — follow this exactly for every multi-column row:
+    1. List each cell's horizontal padding: left_pad + right_pad = cell_padding
+    2. Sum all cells' padding: total_padding = Σ cell_padding
+    3. Remaining content space: content_budget = 600 − total_padding
+    4. Distribute content_budget across cells as their width attributes
+    5. Verify: Σ (width_attr + left_pad + right_pad) for all cells = 600 ✓
+  - Example — 2 cols, cell A: padding 38px top 18px right 38px bottom 40px left → h-padding = 40+18 = 58px; cell B: padding 24px top 40px right 24px bottom 18px left → h-padding = 18+40 = 58px; total_padding = 116px; content_budget = 600−116 = 484px; cell A width="242" cell B width="242"; verify: (242+58)+(242+58) = 600 ✓
+  - NEVER set width attributes independently of padding — always derive width_attr = intended_total_width − padding_left − padding_right.
+  - NEVER use percentage widths on cells that also have explicit horizontal padding.
+  - Before emitting each multi-column <tr>, insert an HTML comment with the arithmetic: <!-- col widths: cellA(width_attr=X pad=Y total=X+Y) + cellB(width_attr=A pad=B total=A+B) = 600 -->
 - Include a hidden preview text <span> immediately after <body> opens (display:none, font-size:1px).
 - Every <table> must have: role="presentation" cellspacing="0" cellpadding="0" border="0"
 - Every <img> must have: alt text and display:block style.
