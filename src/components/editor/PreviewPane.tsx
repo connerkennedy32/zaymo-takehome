@@ -49,6 +49,7 @@ document.body.addEventListener('click',function(e){
       fontWeight:el.style.fontWeight||cs.fontWeight,
       textAlign:el.style.textAlign||cs.textAlign,
       padding:el.style.padding||'',
+      margin:el.style.margin||'',
       borderRadius:el.style.borderRadius||'',
       border:el.style.border||'',
       width:el.style.width||''
@@ -58,9 +59,16 @@ document.body.addEventListener('click',function(e){
 window.addEventListener('message',function(e){
   var d=e.data;if(!d||!d.type)return;
   if(d.type==='mc:deselect'){document.querySelectorAll('.mc-sel').forEach(function(x){x.classList.remove('mc-sel');});return;}
-  if(!d.type.startsWith('mc:apply')||!d.eid)return;
+  if((!d.type.startsWith('mc:apply')&&d.type!=='mc:remove')||!d.eid)return;
   var el=document.querySelector('[data-eid="'+d.eid+'"]');if(!el)return;
-  if(d.type==='mc:apply:text'){el.innerText=d.value;}
+  if(d.type==='mc:remove'){el.parentNode&&el.parentNode.removeChild(el);window.parent.postMessage({type:'mc:updated',html:document.documentElement.outerHTML},'*');return;}
+  if(d.type==='mc:apply:batch'){
+    if(d.text!==undefined)el.innerText=d.text;
+    if(d.src!==undefined)el.setAttribute('src',d.src);
+    if(d.alt!==undefined)el.setAttribute('alt',d.alt);
+    if(d.href!==undefined)el.setAttribute('href',d.href);
+    if(d.styles)Object.keys(d.styles).forEach(function(k){el.style[k]=d.styles[k];});
+  } else if(d.type==='mc:apply:text'){el.innerText=d.value;}
   else if(d.type==='mc:apply:src'){el.setAttribute('src',d.src);if(d.alt!==undefined)el.setAttribute('alt',d.alt);}
   else if(d.type==='mc:apply:href'){el.setAttribute('href',d.href);}
   else if(d.type==='mc:apply:styles'){Object.keys(d.styles).forEach(function(k){el.style[k]=d.styles[k];});}
@@ -144,9 +152,18 @@ export function PreviewPane({
     iframeRef.current?.contentWindow?.postMessage(msg, "*")
   }
 
+  function handleBatch(eid: string, payload: Record<string, unknown>) {
+    iframeRef.current?.contentWindow?.postMessage({ type: "mc:apply:batch", eid, ...payload }, "*")
+  }
+
   function handleClose() {
     setSelectedElement(null)
     iframeRef.current?.contentWindow?.postMessage({ type: "mc:deselect" }, "*")
+  }
+
+  function handleRemove(eid: string) {
+    iframeRef.current?.contentWindow?.postMessage({ type: "mc:remove", eid }, "*")
+    setSelectedElement(null)
   }
 
   useEffect(() => {
@@ -243,8 +260,8 @@ export function PreviewPane({
       </div>
 
       {/* Preview + side editor */}
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 overflow-auto bg-muted/30">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-auto bg-muted/30">
           <div className="min-h-full flex justify-center p-6">
           {html ? (
             <div className="w-[600px] shrink-0 shadow-md rounded overflow-hidden bg-white">
@@ -275,7 +292,9 @@ export function PreviewPane({
           <ElementEditor
             element={selectedElement}
             onApply={handleApply}
+            onBatch={handleBatch}
             onClose={handleClose}
+            onRemove={handleRemove}
           />
         )}
       </div>

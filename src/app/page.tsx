@@ -481,7 +481,7 @@ export default function Home() {
 
             <ResizableHandle withHandle />
 
-            <ResizablePanel defaultSize="72%" minSize="30%">
+            <ResizablePanel defaultSize="72%" minSize="40%">
               <ResizablePanelGroup orientation="vertical" className="h-full">
                 <ResizablePanel defaultSize="100%" minSize="30%">
                   <PreviewPane

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { ArrowUp, Loader2, Zap, Pencil, ImagePlus, X, Globe, MessageSquare, Palette, Plus, Check } from "lucide-react"
+import { ArrowUp, Loader2, Zap, Pencil, ImagePlus, X, Globe, MessageSquare, Palette, Plus, Check, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import type { BrandContext } from "@/lib/openai"
 import { StyleModal, type StyleSummary } from "./StyleModal"
@@ -525,120 +525,120 @@ export function ChatSidebar({ onHtmlChange, hasHtml, isGenerating, setIsGenerati
       </div>
 
       {/* Style selector */}
-      <div className="px-4 py-3 border-b">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Palette className="h-3 w-3" />
-            <span>Style</span>
+      <div className="px-4 py-3 border-b relative" ref={stylePickerRef}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Palette className="h-3 w-3 text-muted-foreground" />
+            <span className="text-xs font-medium">Visual style</span>
           </div>
-          <div className="relative" ref={stylePickerRef}>
-            <button
-              onClick={openStylePicker}
-              className="flex items-center gap-1 text-xs transition-colors group hover:text-foreground max-w-[160px]"
-            >
-              {activeStyle ? (
-                <span className="text-foreground font-medium truncate">{activeStyle.name}</span>
-              ) : (
-                <span className="text-muted-foreground">None</span>
-              )}
-            </button>
+          <button
+            onClick={() => { setShowStylePicker(false); setShowStyleModal(true) }}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            New
+          </button>
+        </div>
 
-            {showStylePicker && (
-              <div className="absolute right-0 top-full mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                  <span className="text-xs font-medium">Styles</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs gap-1"
-                    onClick={() => { setShowStylePicker(false); setShowStyleModal(true) }}
-                  >
-                    <Plus className="h-3 w-3" />
-                    New
-                  </Button>
+        <button
+          onClick={openStylePicker}
+          className={[
+            "w-full flex items-center justify-between px-3 py-2 rounded-md border text-xs transition-colors",
+            activeStyle
+              ? "border-border bg-muted/40 hover:bg-muted/60"
+              : "border-dashed border-border hover:border-muted-foreground/50 hover:bg-muted/20",
+          ].join(" ")}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {activeStyle ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span className="font-medium truncate">{activeStyle.name}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No style — click to pick</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            {activeStyle && (
+              <span
+                role="button"
+                onClick={(e) => { e.stopPropagation(); setActiveStyle(null) }}
+                className="text-muted-foreground hover:text-foreground transition-colors p-0.5 -mr-0.5"
+              >
+                <X className="h-3 w-3" />
+              </span>
+            )}
+            <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showStylePicker ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+
+        {activeStyle?.stylePrompt && (
+          <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{activeStyle.stylePrompt}</p>
+        )}
+
+        {showStylePicker && (
+          <div className="absolute right-0 top-full mt-1 w-full bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+            {loadingStyles ? (
+              <div className="flex items-center justify-center p-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : styles.length === 0 ? (
+              <div className="p-4 flex flex-col items-center gap-3">
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-medium">No styles yet</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Create a style to give every email a consistent look — upload screenshots or describe the aesthetic.</p>
                 </div>
-
-                {loadingStyles ? (
-                  <div className="flex items-center justify-center p-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : styles.length === 0 ? (
-                  <div className="p-4 text-center space-y-2">
-                    <p className="text-xs text-muted-foreground">No styles yet.</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => { setShowStylePicker(false); setShowStyleModal(true) }}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Create your first style
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="max-h-56 overflow-y-auto py-1">
-                    <button
-                      onClick={() => { setActiveStyle(null); setShowStylePicker(false) }}
-                      className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-center gap-2 ${!activeStyle ? "bg-muted/60" : ""}`}
-                    >
-                      {!activeStyle && <Check className="h-3 w-3 text-primary shrink-0" />}
-                      <span className="text-xs text-muted-foreground">None</span>
-                    </button>
-                    {styles.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => { setActiveStyle(s); setShowStylePicker(false) }}
-                        className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-center gap-2 ${activeStyle?.id === s.id ? "bg-muted/60" : ""}`}
-                      >
-                        {activeStyle?.id === s.id && <Check className="h-3 w-3 text-primary shrink-0" />}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium truncate">{s.name}</p>
-                          {s.description && (
-                            <p className="text-xs text-muted-foreground truncate">{s.description}</p>
-                          )}
-                        </div>
-                        {s.images?.length > 0 && (
-                          <div className="flex -space-x-1 shrink-0">
-                            {(s.images as string[]).slice(0, 2).map((url, i) => (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                key={i}
-                                src={url}
-                                alt=""
-                                className="h-6 w-6 rounded object-cover border border-border"
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <Button
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 w-full"
+                  onClick={() => { setShowStylePicker(false); setShowStyleModal(true) }}
+                >
+                  <Palette className="h-3 w-3" />
+                  Create a style
+                </Button>
+              </div>
+            ) : (
+              <div className="max-h-56 overflow-y-auto py-1">
+                <button
+                  onClick={() => { setActiveStyle(null); setShowStylePicker(false) }}
+                  className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-center gap-2 ${!activeStyle ? "bg-muted/60" : ""}`}
+                >
+                  {!activeStyle
+                    ? <Check className="h-3 w-3 text-primary shrink-0" />
+                    : <span className="h-3 w-3 shrink-0" />
+                  }
+                  <span className="text-xs text-muted-foreground">No style</span>
+                </button>
+                {styles.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveStyle(s); setShowStylePicker(false) }}
+                    className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-center gap-2 ${activeStyle?.id === s.id ? "bg-muted/60" : ""}`}
+                  >
+                    {activeStyle?.id === s.id
+                      ? <Check className="h-3 w-3 text-primary shrink-0" />
+                      : <span className="h-3 w-3 shrink-0" />
+                    }
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate">{s.name}</p>
+                      {s.description && (
+                        <p className="text-xs text-muted-foreground truncate">{s.description}</p>
+                      )}
+                    </div>
+                    {s.images?.length > 0 && (
+                      <div className="flex -space-x-1 shrink-0">
+                        {(s.images as string[]).slice(0, 2).map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={url} alt="" className="h-6 w-6 rounded object-cover border border-border" />
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>
-
-          {activeStyle ? (
-            <button
-              onClick={() => setActiveStyle(null)}
-              className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
-              title="Clear style"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowStyleModal(true)}
-              className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
-              title="New style"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-
-        {activeStyle && (
-          <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{activeStyle.stylePrompt}</p>
         )}
       </div>
 

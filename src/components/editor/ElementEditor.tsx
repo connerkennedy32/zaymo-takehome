@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { X, Upload, Loader2, AlignLeft, AlignCenter, AlignRight, Library, Check } from "lucide-react"
+import { X, Upload, Loader2, AlignLeft, AlignCenter, AlignRight, Library, Check, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -28,16 +28,44 @@ export type SelectedElement = {
     fontWeight: string
     textAlign: string
     padding: string
+    margin: string
     borderRadius: string
     border: string
     width: string
   }
 }
 
+type BatchPayload = {
+  text?: string
+  src?: string
+  alt?: string
+  href?: string
+  styles?: Record<string, string>
+}
+
 type Props = {
   element: SelectedElement
   onApply: (type: string, eid: string, payload: Record<string, string>) => void
+  onBatch: (eid: string, payload: BatchPayload) => void
   onClose: () => void
+  onRemove: (eid: string) => void
+}
+
+type SpacingSides = { top: number | null; right: number | null; bottom: number | null; left: number | null }
+
+function parseSpacing(value: string): SpacingSides {
+  if (!value || value.trim() === "") return { top: null, right: null, bottom: null, left: null }
+  const parts = value.trim().split(/\s+/).map((p) => parseInt(p))
+  if (parts.length === 1) return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] }
+  if (parts.length === 2) return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] }
+  if (parts.length === 3) return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] }
+  return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] }
+}
+
+function spacingToString(s: SpacingSides): string | null {
+  const vals = [s.top, s.right, s.bottom, s.left]
+  if (vals.every((v) => v === null)) return null
+  return vals.map((v) => (v === null ? "0" : v + "px")).join(" ")
 }
 
 function rgbToHex(rgb: string): string {
@@ -58,7 +86,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-export function ElementEditor({ element, onApply, onClose }: Props) {
+export function ElementEditor({ element, onApply, onBatch, onClose, onRemove }: Props) {
   const isImg = element.tag === "img"
   const isLink = element.tag === "a"
 
@@ -83,6 +111,8 @@ export function ElementEditor({ element, onApply, onClose }: Props) {
   )
   const [align, setAlign] = useState(element.styles.textAlign || "left")
   const [borderRadius, setBorderRadius] = useState(parseInt(element.styles.borderRadius) || 0)
+  const [padding, setPadding] = useState<SpacingSides>(() => parseSpacing(element.styles.padding))
+  const [margin, setMargin] = useState<SpacingSides>(() => parseSpacing(element.styles.margin))
 
   useEffect(() => {
     setText(element.innerText)
@@ -95,6 +125,8 @@ export function ElementEditor({ element, onApply, onClose }: Props) {
     setBold(element.styles.fontWeight === "bold" || parseInt(element.styles.fontWeight) >= 700)
     setAlign(element.styles.textAlign || "left")
     setBorderRadius(parseInt(element.styles.borderRadius) || 0)
+    setPadding(parseSpacing(element.styles.padding))
+    setMargin(parseSpacing(element.styles.margin))
     setApplied(false)
     setShowLib(false)
   }, [element.eid]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,14 +164,6 @@ export function ElementEditor({ element, onApply, onClose }: Props) {
   }
 
   function handleApplyAll() {
-    if (isImg) {
-      onApply("mc:apply:src", element.eid, { src: imgSrc, alt: imgAlt })
-    } else {
-      onApply("mc:apply:text", element.eid, { value: text })
-    }
-    if (isLink) {
-      onApply("mc:apply:href", element.eid, { href })
-    }
     const styles: Record<string, string> = {
       fontSize: fontSize + "px",
       fontWeight: bold ? "bold" : "normal",
@@ -148,7 +172,21 @@ export function ElementEditor({ element, onApply, onClose }: Props) {
     if (color) styles.color = color
     if (bgColor) styles.backgroundColor = bgColor
     if (borderRadius > 0) styles.borderRadius = borderRadius + "px"
-    onApply("mc:apply:styles", element.eid, styles)
+    const paddingStr = spacingToString(padding)
+    if (paddingStr) styles.padding = paddingStr
+    const marginStr = spacingToString(margin)
+    if (marginStr) styles.margin = marginStr
+
+    const batch: BatchPayload = { styles }
+    if (isImg) {
+      batch.src = imgSrc
+      batch.alt = imgAlt
+    } else {
+      batch.text = text
+    }
+    if (isLink) batch.href = href
+
+    onBatch(element.eid, batch)
     setApplied(true)
     setTimeout(() => setApplied(false), 1500)
   }
@@ -370,11 +408,65 @@ export function ElementEditor({ element, onApply, onClose }: Props) {
           </div>
         </Section>
 
+        {/* Spacing */}
+        <Section label="Spacing">
+          {(["padding", "margin"] as const).map((prop) => {
+            const val = prop === "padding" ? padding : margin
+            const setVal = prop === "padding" ? setPadding : setMargin
+            return (
+              <div key={prop} className="flex flex-col gap-1.5">
+                <span className="text-[10px] text-muted-foreground capitalize">{prop}</span>
+                <div className="grid grid-cols-4 gap-1">
+                  {(["top", "right", "bottom", "left"] as const).map((side) => (
+                    <div key={side} className="flex flex-col gap-0.5">
+                      <span className="text-[9px] text-muted-foreground text-center uppercase">{side[0]}</span>
+                      {val[side] !== null ? (
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={val[side] as number}
+                            onChange={(e) => setVal((prev) => ({ ...prev, [side]: Number(e.target.value) }))}
+                            className="h-7 text-xs text-center px-1 pr-4"
+                            min={0}
+                            max={200}
+                          />
+                          <button
+                            onClick={() => setVal((prev) => ({ ...prev, [side]: null }))}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setVal((prev) => ({ ...prev, [side]: 0 }))}
+                          className="h-7 rounded border border-dashed text-muted-foreground hover:text-foreground hover:border-foreground text-[10px] transition-colors flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </Section>
+
       </div>
 
-      {/* Single apply button */}
-      <div className="px-3 py-2 border-t shrink-0">
-        <Button className="w-full gap-1.5" onClick={handleApplyAll}>
+      {/* Actions */}
+      <div className="px-3 py-2 border-t shrink-0 flex gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+          onClick={() => onRemove(element.eid)}
+          title="Remove element"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button className="flex-1 gap-1.5" onClick={handleApplyAll}>
           {applied && <Check className="h-4 w-4" />}
           {applied ? "Applied" : "Apply"}
         </Button>
